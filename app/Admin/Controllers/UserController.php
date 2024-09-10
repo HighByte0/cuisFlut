@@ -26,14 +26,34 @@ class UserController extends AdminController
     {
         $grid = new Grid(new User());
 
-        $grid->column('id', __('Id'));
-        $grid->column('name', __('Name'));
+        // $grid->column('id', __('Id'));
+        $grid->id("Consomm id");
+        $grid->column('f_name', __('Name_Consomm'));
         $grid->column('email', __('Email'));
-        $grid->column('email_verified_at', __('Email verified at'));
+        // $grid->column('email_verified_at', __('Email verified at'));
+        $grid->email_verified_at("isVerified")->display(function($verif){
+            return $verif?"Yes":"No" ;
+        });
         $grid->column('password', __('Password'));
         $grid->column('remember_token', __('Remember token'));
         $grid->column('created_at', __('Created at'));
         $grid->column('updated_at', __('Updated at'));
+        $grid->column('status', __('Status'))->display(function () {
+            // Get the current row's key
+            $id = $this->id; // or $this->getKey() depending on your model
+        
+            // Determine the current status and button text
+            $status = $this->status; // Assuming you have a status attribute in your model
+            $buttonText = $status == 1 ? 'Block' : 'Unblock';
+            $buttonColor = $status == 1 ? 'btn-danger' : 'btn-success'; // Red for Block, Green for Unblock
+        
+            // Generate the URL for the button
+            $url = route('admin.users.change-status', ['id' => $id]);
+        
+            // Return HTML for the button
+            return '<a href="' . $url . '" class="btn btn-sm ' . $buttonColor . '" onclick="return confirm(\'Are you sure?\')">' . $buttonText . '</a>';
+        });
+        
 
         return $grid;
     }

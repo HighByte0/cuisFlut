@@ -1,12 +1,14 @@
 <?php
 namespace App\Http\Controllers\Api\V1;
 
-use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use App\Models\User;
+use App\Models\Report;
+use Illuminate\Http\Request;
 use App\Models\CustomerAddress;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
+use App\Http\Controllers\Controller;
+use App\Models\Food;
+use Illuminate\Support\Facades\Validator;
 
 class CustomerController extends Controller{
     
@@ -24,6 +26,10 @@ class CustomerController extends Controller{
         //unset($data['orders']);
         return response()->json($data, 200);
     }
+
+    
+
+
         public function add_new_address(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -45,6 +51,7 @@ class CustomerController extends Controller{
             'address' => $request->address,
             'longitude' => $request->longitude,
             'latitude' => $request->latitude,
+            'address_type'=>$request->address_type,
             'created_at' => now(),
             'updated_at' => now()
         ];
@@ -79,7 +86,7 @@ class CustomerController extends Controller{
             'user_id' => $request->user()->id,
             'contact_person_name' => $request->contact_person_name,
             'contact_person_number' => $request->contact_person_number,
-            'address_type' => $request->address_type,
+            'address_type' => $request->address_type, 
             'address' => $request->address,
             'longitude' => $request->longitude,
             'latitude' => $request->latitude,
@@ -88,6 +95,49 @@ class CustomerController extends Controller{
             'updated_at' => now()
         ];
         DB::table('customer_addresses')->where('user_id', $request->user()->id)->update($address);
-        return response()->json(['message' => trans('messages.updated_successfully'),'zone_id'=>$zone->id], 200);
+        return response()->json(['message' => trans('messages.updated_successfully')], 200);
     }
+
+public function update_cm_firebase_token(Request $request)
+{
+    // Validate the request
+    $validator = Validator::make($request->all(), [
+        'cm_firebase_token' => 'required|string',
+    ]);
+
+    // Check if validation fails
+    if ($validator->fails()) {
+        return response()->json([
+            'errors' => $validator->errors(),
+        ], 403);
+    }
+
+    // Update the Firebase token in the database
+    DB::table('users')
+        ->where('id', $request->user()->id)
+        ->update([
+            'cm_firebase_token' => $request->input('m_firebase_token'),
+        ]);
+
+    // Return success response
+    return response()->json([
+        'message' => trans('messages.updated_successfully'),
+    ], 200);
+}
+public function storeReport(Request $request){
+    $report = new Report();
+    $report->prod_id = $request->input('prod_id');
+    $report->reason = $request->input('reason');
+    $report->user_id = $request->input('user_id');
+    $report->save();
+    $food=food::find($request->input('prod_id'));
+    if($food){
+        $food->count=$food->count+1;
+        $food->save();
+    }
+    
+
+    return response()->json(['message' => 'Signalement reçu.'], 200);
+
+}
 }

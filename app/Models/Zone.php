@@ -8,23 +8,19 @@ use Grimzy\LaravelMysqlSpatial\Eloquent\SpatialTrait;
 
 class Zone extends Model
 {
-    use HasFactory;
-    use SpatialTrait;
+    use HasFactory, SpatialTrait;
 
-    protected $spatialFields = [
-        'coordinates'
-    ];
+    protected $fillable = ['name', 'coordinates', 'status'];
 
+    protected $spatial = ['coordinates']; // This informs the model that the 'coordinates' field is spatial
 
     public function orders()
     {
-        return $this->hasManyThrough(Order::class);
+        return $this->hasMany(Order::class); // Make sure the relation is correctly defined
     }
-
-
 
     public function scopeActive($query)
     {
-        return $query->where('status', '=', 1);
+        return $query->where('status', 1);
     }
 }

@@ -30,5 +30,6 @@ class OrderDetail extends Model
     {
         return $this->belongsTo(Food::class,'food_id');
     }
+    
 
 }

@@ -43,8 +43,25 @@ class FoodsController extends AdminController
         });
         //$grid->column('total_people', __('People'));
        // $grid->column('selected_people', __('Selected'));
+       $grid->column('count', __('report_Count'))->default(0     );
         $grid->column('created_at', __('Created_at'));
         $grid->column('updated_at', __('Updated_at'));
+
+        $grid->column('admin_status', __('Status'))->display(function () {
+            // Get the current row's key
+            $id = $this->id; // or $this->getKey() depending on your model
+        
+            // Determine the current status and button text
+            $status      = $this->admin_status; // Assuming you have a status attribute in your model
+            $buttonText = $status == 1 ? 'clicker pour Blocker ' : 'clicker pour deblockee';
+            $buttonColor = $status == 1 ? 'btn-danger' : 'btn-success'; // Red for Block, Green for Unblock
+        
+            // Generate the URL for the button
+            $url = route('updateFoodStatus', ['id' => $id]);
+        
+            // Return HTML for the button
+            return '<a href="' . $url . '" class="btn btn-sm ' . $buttonColor . '" onclick="return confirm(\'Are you sure?\')">' . $buttonText . '</a>';
+        });
 
         return $grid;
     }

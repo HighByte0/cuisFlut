@@ -17,6 +17,7 @@ class Order extends Model
         'scheduled' => 'integer',
         'details_count' => 'integer',
         'created_at' => 'datetime',
+        'delivery_address'=>'integer',
         'updated_at' => 'datetime'
     ];
 
@@ -28,5 +29,9 @@ class Order extends Model
     public function details()
     {
         return $this->hasMany(OrderDetail::class);
+    }
+    public function user()
+    {
+        return $this->belongsTo(User::class);
     }
 }

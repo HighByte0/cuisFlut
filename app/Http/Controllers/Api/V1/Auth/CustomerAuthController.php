@@ -1,55 +1,46 @@
 <?php
 
 namespace App\Http\Controllers\Api\V1\Auth;
-use App\CentralLogics\Helpers;
-
-use App\Http\Controllers\Controller;
-
 use App\Models\User;
+
 use Illuminate\Http\Request;
+
+use App\CentralLogics\Helpers;
 use Illuminate\Support\Facades\DB;
+use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 
 
 class CustomerAuthController extends Controller
 {
-    
-     public function login(Request $request)
+    public function login(Request $request)
     {
-          $validator = Validator::make($request->all(), [
-            'phone' => 'required',
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|email',
             'password' => 'required|min:6'
         ]);
-
+    
         if ($validator->fails()) {
-            return response()->json(['errors' => Helpers::error_processor($validator)], 403);
+            return response()->json(['errors' => $validator->errors()], 422); // 422 for validation errors
         }
-        $data = [
-            'phone' => $request->phone,
-            'password' => $request->password
-        ];
-        
-        if (auth()->attempt($data)) {
-            //auth()->user() is coming from laravel auth:api middleware
-            $token = auth()->user()->createToken('RestaurantCustomerAuth')->accessToken;
-            if(!auth()->user()->status)
-            {
-                $errors = [];
-                array_push($errors, ['code' => 'auth-003', 'message' => trans('messages.your_account_is_blocked')]);
-                return response()->json([
-                    'errors' => $errors
-                ], 403);
-            }
-          
-            return response()->json(['token' => $token, 'is_phone_verified'=>auth()->user()->is_phone_verified], 200);
-        } else {
-            $errors = [];
-            array_push($errors, ['code' => 'auth-001', 'message' => 'Unauthorized.']);
-            return response()->json([
-                'errors' => $errors
-            ], 401);
+    
+        $credentials = $request->only('email', 'password');
+    
+        if (!Auth::attempt($credentials)) {
+            return response()->json(['errors' => ['code' => 'auth-001', 'message' => 'Unauthorized.']], 401); // 401 for authentication failure
         }
+    
+        $user = Auth::user();
+        if (!$user->status) {
+            return response()->json(['errors' => ['code' => 'auth-003', 'message' => 'Your account is blocked.']], 403); // 403 for blocked account
+        }
+    
+        $token = $user->createToken('RestaurantCustomerAuth')->plainTextToken;
+    
+        return response()->json(['token' => $token, 'is_phone_verified' => $user->is_phone_verified], 200); // 200 for success
     }
+    
     
         public function register(Request $request)
     {
@@ -65,7 +56,7 @@ class CustomerAuthController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['errors' => "Failed Validation"], 403);
+            return response()->json(['errors' => Helpers::error_processor($validator)], 403);
         }
         $user = User::create([
             'f_name' => $request->f_name,
@@ -75,7 +66,7 @@ class CustomerAuthController extends Controller
             'password' => bcrypt($request->password),
         ]);
 
-        $token = $user->createToken('RestaurantCustomerAuth')->accessToken;
+        $token = $user->createToken('RestaurantCustomerAuth')->plainTextToken;
 
        
         return response()->json(['token' => $token,'is_phone_verified' => 0, 'phone_verify_end_url'=>"api/v1/auth/verify-phone" ], 200);

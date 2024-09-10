@@ -2,12 +2,17 @@
 
 namespace App\Http\Controllers\Api\V1;
 
-use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-use App\CentralLogics\Helpers;
 use App\Models\Food;
+use App\Models\User;
 use App\Models\Order;
 use App\Models\OrderDetail;
+use Illuminate\Http\Request;
+use App\CentralLogics\Helpers;
+use App\Mail\OrderStatusChanged;
+use Illuminate\Support\Facades\DB;
+use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 
 class OrderController extends Controller
@@ -45,6 +50,8 @@ class OrderController extends Controller
         $order->pending = now(); //checked
         $order->created_at = now(); //checked
         $order->updated_at = now();//checked
+        $order->payment_status = $request->payment_method == 'cash_on_delivery' ? 'pending' : 'confirmed';
+        $order->payment_method=$request->payment_method;
         
         foreach ($request['cart'] as $c) {
      
@@ -52,7 +59,7 @@ class OrderController extends Controller
                 if ($product) {
             
                     $price = $product['price']; //checked 
-                    
+                        
                     $or_d = [
                         'food_id' => $c['id'], //checked
                         'food_details' => json_encode($product), 
@@ -90,6 +97,8 @@ class OrderController extends Controller
             */
             OrderDetail::insert($order_details);
 
+            Helpers::sendOrderNotification($order,$request->user()->m_firebase_token);
+
             return response()->json([
                 'message' => trans('messages.order_placed_successfully'),
                 'order_id' =>  $save_order,
@@ -116,5 +125,106 @@ class OrderController extends Controller
         });
         return response()->json($orders, 200);
     }
+
     
+    public function show()
+    {
+        return view('cartBancaire', [
+            'customerId' => request('customer_id'),
+            'orderId' => request('order_id')
+        ]);
+    }
+    
+
+        
+    public function orderController($foodUserId)
+    {
+        // Fetch order details along with the relevant information and delivery address
+        $orderDetails = DB::table('order_details')
+            ->join('orders', 'order_details.order_id', '=', 'orders.id')
+            ->join('foods', 'order_details.food_id', '=', 'foods.id')
+            ->join('users', 'orders.user_id', '=', 'users.id')
+            ->select(
+                'order_details.quantity',
+                'orders.id as order_id',    
+                'orders.order_status',
+                'orders.order_note',
+                'orders.payment_status',
+                'users.f_name',
+                'orders.delivery_address' ,
+                'order_details.food_details'//this when lon,lan exist
+                
+            )
+            ->where('foods.user_id', $foodUserId)
+            ->get();
+    
+        // Decode delivery_address JSON field
+        foreach ($orderDetails as $order) {
+            $order->delivery_address = json_decode($order->delivery_address);
+        }
+    
+        // Return the data to the view
+        return view('orders.details', compact('orderDetails'));
+    }
+    
+
+    
+    
+        
+    
+        public function updateOrderStatus(Request $request, $orderId)
+        {
+              // Validate the request
+    $validated = $request->validate([
+        'order_status' => 'required|string|in:pending,accepted,processing,handover,picked_up',
+    ]);
+
+    // Find the order
+    $order = Order::find($orderId);
+
+    if (!$order) {
+        return redirect()->back()->with('error', 'Order not found.');
+    }
+
+    // Update the order status
+    $order->order_status = $validated['order_status'];
+    $order->save();
+
+    // Send email if status is processing or ready for handover
+    if (in_array($order->order_status, ['processing', 'handover','accepted'])) {
+        // Fetch customer email
+        $customerEmail = $order->user->email; // Assuming you have a relationship set up
+
+        // Send email
+        Mail::to($customerEmail)->send(new OrderStatusChanged($order));
+    }
+
+    return redirect()->back()->with('success', 'Order status updated successfully!');
+
+        }
+
+
+
+        public function menu($id)
+        {
+            // Retrieve a specific food item by ID
+         $foods=Food::where('user_id',$id)->get(); // Replace 5 with the actual ID or criteria you need
+        
+            if ($foods) {
+                return view('food.show', compact('foods'));
+            } else {
+                // Handle the case where the food item is not found
+                return redirect()->route('welcome')->with('error', 'Food item not found.');
+            }
+        }
+
+public function destroy($id){
+    Food::destroy($id);
+    return redirect()->back();
+
+
+}
+
+
+        
 }
